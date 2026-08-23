@@ -358,6 +358,8 @@ public partial class MainWindowViewModel
         OnPropertyChanged(nameof(PreviewInfoText));
 
         LoadSelectedMulSlot();
+
+        equipmentBinderToolViewModel?.RefreshHostSelection();
     }
 
     partial void OnSelectedUopBodySlotChanged(UopBodySlotEntry? value)
