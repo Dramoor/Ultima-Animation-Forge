@@ -82,7 +82,7 @@
                                 BorderThickness="1"
                                 CornerRadius="4"
                                 Padding="8"
-                                IsVisible="{Binding WearableWizardMaleGumpConflict}">
+                                IsVisible="{Binding WearableWizardHasSlotConflict}">
                             <TextBlock Text="{Binding WearableWizardConflictText}"
                                        Foreground="#FFB0B0"
                                        TextWrapping="Wrap"/>

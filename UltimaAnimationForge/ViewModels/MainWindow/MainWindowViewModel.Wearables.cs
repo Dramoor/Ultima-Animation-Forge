@@ -67,13 +67,21 @@ public partial class MainWindowViewModel
     private bool wearableWizardPartialHue = true;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WearableWizardHasSlotConflict))]
     private bool wearableWizardMaleGumpConflict;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WearableWizardHasSlotConflict))]
     private bool wearableWizardFemaleGumpConflict;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WearableWizardHasSlotConflict))]
     private bool wearableWizardArtConflict;
+
+    public bool WearableWizardHasSlotConflict =>
+        WearableWizardMaleGumpConflict ||
+        WearableWizardFemaleGumpConflict ||
+        WearableWizardArtConflict;
 
     [ObservableProperty]
     private string wearableWizardConflictText = string.Empty;
