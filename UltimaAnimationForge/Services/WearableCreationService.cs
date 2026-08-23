@@ -61,9 +61,13 @@ public sealed class WearableCreationService
 
             using FileRollbackScope rollback = new(
                 Path.Combine(request.FolderPath, "gumpartLegacyMUL.uop"),
+                Path.Combine(request.FolderPath, "gumpartLegacyMUL.uop.bak"),
                 Path.Combine(request.FolderPath, "artLegacyMUL.uop"),
+                Path.Combine(request.FolderPath, "artLegacyMUL.uop.bak"),
                 Path.Combine(request.FolderPath, "tiledata.mul"),
-                Path.Combine(request.FolderPath, "Body.def"));
+                Path.Combine(request.FolderPath, "tiledata.mul.bak"),
+                Path.Combine(request.FolderPath, "Body.def"),
+                Path.Combine(request.FolderPath, "Body.def.bak"));
 
             List<string> messages = new();
 
