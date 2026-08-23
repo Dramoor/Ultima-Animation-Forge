@@ -8,8 +8,8 @@ namespace UltimaAnimationForge.Services;
 
 public sealed class WearableCreationService
 {
-    private const ulong WeaponFlag = 1UL << 0;
-    private const ulong PartialHueFlag = 1UL << 13;
+    private const ulong WeaponFlag = 1UL << 1;
+    private const ulong PartialHueFlag = 1UL << 18;
     private const ulong WearableFlag = 1UL << 22;
 
     public sealed class Request
@@ -58,6 +58,12 @@ public sealed class WearableCreationService
             {
                 return Fail("Inventory/world art image is required.");
             }
+
+            using FileRollbackScope rollback = new(
+                Path.Combine(request.FolderPath, "gumpartLegacyMUL.uop"),
+                Path.Combine(request.FolderPath, "artLegacyMUL.uop"),
+                Path.Combine(request.FolderPath, "tiledata.mul"),
+                Path.Combine(request.FolderPath, "Body.def"));
 
             List<string> messages = new();
 
@@ -136,7 +142,16 @@ public sealed class WearableCreationService
             }
 
             itemEntry.Name = string.IsNullOrWhiteSpace(request.Name) ? "custom wearable" : request.Name.Trim();
-            itemEntry.Flags |= WeaponFlag;
+            byte layerNumber = GetLayerNumber(request.Layer);
+            if (layerNumber is 0x01 or 0x02)
+            {
+                itemEntry.Flags |= WeaponFlag;
+            }
+            else
+            {
+                itemEntry.Flags &= ~WeaponFlag;
+            }
+
             itemEntry.Flags |= WearableFlag;
             if (request.PartialHue)
             {
@@ -147,7 +162,7 @@ public sealed class WearableCreationService
                 itemEntry.Flags &= ~PartialHueFlag;
             }
             itemEntry.Animation = checked((short)request.AnimationId);
-            itemEntry.Quality = GetLayerNumber(request.Layer);
+            itemEntry.Quality = layerNumber;
             itemEntry.IsEdited = true;
 
             if (!tileDataService.SaveTileData(request.FolderPath, tileDataEntries, out string tileDataMessage))
@@ -168,6 +183,8 @@ public sealed class WearableCreationService
 
                 messages.Add(bodyDefMessage);
             }
+
+            rollback.Complete();
 
             return new Result
             {
@@ -274,5 +291,67 @@ public sealed class WearableCreationService
             Success = false,
             Message = message
         };
+    }
+
+    private sealed class FileRollbackScope : IDisposable
+    {
+        private readonly string backupFolder = Path.Combine(
+            Path.GetTempPath(),
+            "uaf-wearable-" + Guid.NewGuid().ToString("N"));
+        private readonly List<(string OriginalPath, string BackupPath, bool Existed)> files = new();
+        private bool completed;
+
+        public FileRollbackScope(params string[] paths)
+        {
+            Directory.CreateDirectory(backupFolder);
+
+            for (int index = 0; index < paths.Length; index++)
+            {
+                string path = paths[index];
+                bool existed = File.Exists(path);
+                string backupPath = Path.Combine(backupFolder, index.ToString());
+
+                if (existed)
+                {
+                    File.Copy(path, backupPath, true);
+                }
+
+                files.Add((path, backupPath, existed));
+            }
+        }
+
+        public void Complete() => completed = true;
+
+        public void Dispose()
+        {
+            try
+            {
+                if (!completed)
+                {
+                    foreach ((string originalPath, string backupPath, bool existed) in files)
+                    {
+                        if (existed)
+                        {
+                            File.Copy(backupPath, originalPath, true);
+                        }
+                        else if (File.Exists(originalPath))
+                        {
+                            File.Delete(originalPath);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(backupFolder, true);
+                }
+                catch
+                {
+                    // A leftover temporary backup is safer than masking the operation result.
+                }
+            }
+        }
     }
 }

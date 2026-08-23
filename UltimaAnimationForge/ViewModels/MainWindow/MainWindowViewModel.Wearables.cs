@@ -273,13 +273,22 @@ public partial class MainWindowViewModel
     private void AutoPickWearableWizardIds()
     {
         int maleStart = WearableWizardUseSittingSafeRange ? 50400 : 50000;
+        int maleEnd = WearableWizardUseSittingSafeRange
+            ? 50999
+            : WearableWizardCreateFemaleVariant ? 55534 : 59999;
 
-        int maleGumpId = FindNextLikelyFreeWearableId(maleStart, 50999);
-        int animationId = maleGumpId - 50000;
+        int? maleGumpId = FindNextLikelyFreeWearableId(maleStart, maleEnd);
+        if (maleGumpId == null)
+        {
+            WearableWizardStatusText = "No free wearable ID set was found in the selected range.";
+            return;
+        }
 
-        WearableWizardMaleGumpId = maleGumpId;
+        int animationId = maleGumpId.Value - 50000;
+
+        WearableWizardMaleGumpId = maleGumpId.Value;
         WearableWizardFemaleGumpId = 60000 + animationId;
-        WearableWizardArtId = maleGumpId;
+        WearableWizardArtId = maleGumpId.Value;
         WearableWizardAnimationId = animationId;
 
         RebuildWearableWizardPlan();
@@ -351,6 +360,7 @@ public partial class MainWindowViewModel
     [RelayCommand]
     private void ApplyWearableWizard()
     {
+        RebuildWearableWizardPlan();
         ValidateWearableWizardConflicts();
 
         if (WearableWizardMaleGumpConflict ||
@@ -362,8 +372,6 @@ public partial class MainWindowViewModel
 
             return;
         }
-
-        RebuildWearableWizardPlan();
 
         WearableCreationService service = new();
 
@@ -385,6 +393,7 @@ public partial class MainWindowViewModel
             AnimationId = WearableWizardAnimationId,
             ExistingAnimationId = WearableWizardExistingAnimationId,
             Hue = WearableWizardHue,
+            PartialHue = WearableWizardPartialHue,
             WriteBodyDef = WearableWizardAnimationMode == "Reuse Existing Animation"
         });
 
@@ -485,30 +494,35 @@ public partial class MainWindowViewModel
         return path;
     }
 
-    private int FindNextLikelyFreeWearableId(int start, int end)
+    private int? FindNextLikelyFreeWearableId(int start, int end)
     {
         if (start < 50000)
         {
             start = 50000;
         }
 
-        if (end > 50999)
+        if (end > 59999)
         {
-            end = 50999;
+            end = 59999;
         }
 
         for (int id = start; id <= end; id++)
         {
             bool gumpUsed = GumpEntries.Any(entry => entry.GumpId == id && entry.IsValid);
             bool artUsed = ArtEntries.Any(entry => entry.ArtId == id && !entry.IsFreeSlot);
+            int animationId = id - 50000;
+            int femaleId = 60000 + animationId;
+            bool femaleGumpUsed =
+                WearableWizardCreateFemaleVariant &&
+                GumpEntries.Any(entry => entry.GumpId == femaleId && entry.IsValid);
 
-            if (!gumpUsed && !artUsed)
+            if (!gumpUsed && !femaleGumpUsed && !artUsed)
             {
                 return id;
             }
         }
 
-        return start;
+        return null;
     }
 
     private string NormalizeWearableHue()
