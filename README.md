@@ -1,5 +1,9 @@
 # 🛠️ Ultima Animation Forge
 
+<p align="center">
+  <img src="UltimaAnimationForge/Assets/preview.png" alt="Ultima Animation Forge interface with no game animation loaded" width="900"/>
+</p>
+
 A full-featured animation editor for **Ultima Online**, built for working with both legacy **MUL** animations and modern **UOP** animation files.
 
 Ultima Animation Forge is designed for shard developers, ClassicUO modders, animation artists, and tool developers who need a practical way to view, edit, import, export, and test UO animations.
