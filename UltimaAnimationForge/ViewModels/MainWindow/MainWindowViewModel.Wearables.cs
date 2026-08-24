@@ -96,7 +96,14 @@ public partial class MainWindowViewModel
         WearableWizardArtConflict ||
         WearableWizardAnimationConflict ||
         WearableWizardBodyDefConflict ||
-        WearableWizardHueInvalid;
+        WearableWizardHueInvalid ||
+        WearableWizardHasMissingId;
+
+    private bool WearableWizardHasMissingId =>
+        wearableWizardMaleGumpIdMissing ||
+        (WearableWizardCreateFemaleVariant && wearableWizardFemaleGumpIdMissing) ||
+        wearableWizardArtIdMissing ||
+        wearableWizardAnimationIdMissing;
 
     [ObservableProperty]
     private string wearableWizardConflictText = string.Empty;
@@ -199,16 +206,49 @@ public partial class MainWindowViewModel
     private bool wearableWizardUseSittingSafeRange = true;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WearableWizardMaleGumpIdInput))]
     private int wearableWizardMaleGumpId = 50400;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WearableWizardFemaleGumpIdInput))]
     private int wearableWizardFemaleGumpId = 60400;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WearableWizardArtIdInput))]
     private int wearableWizardArtId = 400;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WearableWizardAnimationIdInput))]
     private int wearableWizardAnimationId = 400;
+
+    private bool wearableWizardMaleGumpIdMissing;
+    private bool wearableWizardFemaleGumpIdMissing;
+    private bool wearableWizardArtIdMissing;
+    private bool wearableWizardAnimationIdMissing;
+
+    public int? WearableWizardMaleGumpIdInput
+    {
+        get => wearableWizardMaleGumpIdMissing ? null : WearableWizardMaleGumpId;
+        set => SetWearableWizardIdInput(value, ref wearableWizardMaleGumpIdMissing, id => WearableWizardMaleGumpId = id);
+    }
+
+    public int? WearableWizardFemaleGumpIdInput
+    {
+        get => wearableWizardFemaleGumpIdMissing ? null : WearableWizardFemaleGumpId;
+        set => SetWearableWizardIdInput(value, ref wearableWizardFemaleGumpIdMissing, id => WearableWizardFemaleGumpId = id);
+    }
+
+    public int? WearableWizardArtIdInput
+    {
+        get => wearableWizardArtIdMissing ? null : WearableWizardArtId;
+        set => SetWearableWizardIdInput(value, ref wearableWizardArtIdMissing, id => WearableWizardArtId = id);
+    }
+
+    public int? WearableWizardAnimationIdInput
+    {
+        get => wearableWizardAnimationIdMissing ? null : WearableWizardAnimationId;
+        set => SetWearableWizardIdInput(value, ref wearableWizardAnimationIdMissing, id => WearableWizardAnimationId = id);
+    }
 
     [ObservableProperty]
     private int wearableWizardExistingAnimationId = 435;
@@ -292,35 +332,60 @@ public partial class MainWindowViewModel
             ? 50999
             : WearableWizardCreateFemaleVariant ? 55534 : 59999;
 
-        int? maleGumpId = FindNextLikelyFreeWearableId(maleStart, maleEnd);
-        if (maleGumpId == null)
+        HashSet<int> usedGumpIds = GumpEntries
+            .Where(entry => entry.IsValid)
+            .Select(entry => entry.GumpId)
+            .ToHashSet();
+        int? maleGumpId = FindNextFreeWearableGumpId(
+            maleStart,
+            maleEnd,
+            usedGumpIds,
+            WearableWizardCreateFemaleVariant);
+
+        HashSet<int> usedArtIds = LoadUsedWearableArtIds();
+        int? artId = FindFirstFreeId(0, ushort.MaxValue, usedArtIds);
+
+        HashSet<int> usedAnimationIds = AnimationEntries
+            .Select(entry => entry.BodyId)
+            .ToHashSet();
+        usedAnimationIds.UnionWith(new BodyDefService()
+            .Load(Path.Combine(GetCurrentFolderPath(), "Body.def"))
+            .Keys);
+        int? animationId = FindFirstFreeId(0, 9999, usedAnimationIds);
+
+        if (maleGumpId == null || artId == null || animationId == null)
         {
-            WearableWizardStatusText = "No free wearable ID set was found in the selected range.";
+            List<string> missingSlots = new();
+            if (maleGumpId == null)
+            {
+                missingSlots.Add("gump");
+            }
+            if (artId == null)
+            {
+                missingSlots.Add("art");
+            }
+            if (animationId == null)
+            {
+                missingSlots.Add("animation");
+            }
+
+            WearableWizardStatusText =
+                "No free " + string.Join("/", missingSlots) + " ID was found in the allowed range.";
             return;
         }
 
-        int animationId = maleGumpId.Value - 50000;
-
-        WearableWizardMaleGumpId = maleGumpId.Value;
-        WearableWizardFemaleGumpId = 60000 + animationId;
-        WearableWizardArtId = animationId;
-        WearableWizardAnimationId = animationId;
+        WearableWizardMaleGumpIdInput = maleGumpId.Value;
+        WearableWizardFemaleGumpIdInput = 60000 + (maleGumpId.Value - 50000);
+        WearableWizardArtIdInput = artId.Value;
+        WearableWizardAnimationIdInput = animationId.Value;
 
         RebuildWearableWizardPlan();
+        WearableWizardStatusText = "Selected free gump, art, and animation IDs.";
     }
 
     [RelayCommand]
     private void RebuildWearableWizardPlan()
     {
-        WearableWizardAnimationId = WearableWizardMaleGumpId - 50000;
-
-        if (WearableWizardCreateFemaleVariant)
-        {
-            WearableWizardFemaleGumpId = 60000 + WearableWizardAnimationId;
-        }
-
-        WearableWizardArtId = WearableWizardAnimationId;
-
         string bodyDefLine = WearableWizardAnimationMode == "Reuse Existing Animation"
             ? WearableWizardAnimationId + " {" + WearableWizardExistingAnimationId + "} " + NormalizeWearableHue()
             : "(no Body.def line yet)";
@@ -359,10 +424,10 @@ public partial class MainWindowViewModel
         WearableWizardArtImagePath = string.Empty;
         WearableWizardCreateFemaleVariant = true;
         WearableWizardUseSittingSafeRange = true;
-        WearableWizardMaleGumpId = 50400;
-        WearableWizardFemaleGumpId = 60400;
-        WearableWizardArtId = 400;
-        WearableWizardAnimationId = 400;
+        WearableWizardMaleGumpIdInput = 50400;
+        WearableWizardFemaleGumpIdInput = 60400;
+        WearableWizardArtIdInput = 400;
+        WearableWizardAnimationIdInput = 400;
         WearableWizardExistingAnimationId = 435;
         WearableWizardHue = "0";
         WearableWizardPlanText = "No plan generated yet.";
@@ -457,6 +522,21 @@ public partial class MainWindowViewModel
         RebuildWearableWizardPlan();
     }
 
+    partial void OnWearableWizardFemaleGumpIdChanged(int value)
+    {
+        RebuildWearableWizardPlan();
+    }
+
+    partial void OnWearableWizardArtIdChanged(int value)
+    {
+        RebuildWearableWizardPlan();
+    }
+
+    partial void OnWearableWizardAnimationIdChanged(int value)
+    {
+        RebuildWearableWizardPlan();
+    }
+
     partial void OnWearableWizardExistingAnimationIdChanged(int value)
     {
         RebuildWearableWizardPlan();
@@ -507,7 +587,11 @@ public partial class MainWindowViewModel
         return path;
     }
 
-    private int? FindNextLikelyFreeWearableId(int start, int end)
+    private static int? FindNextFreeWearableGumpId(
+        int start,
+        int end,
+        HashSet<int> usedGumpIds,
+        bool requireFemaleVariant)
     {
         if (start < 50000)
         {
@@ -519,31 +603,24 @@ public partial class MainWindowViewModel
             end = 59999;
         }
 
-        HashSet<int> usedArtIds = ArtEntries
-            .Where(entry => !entry.IsFreeSlot)
-            .Select(entry => entry.ArtId)
-            .ToHashSet();
-        HashSet<int> usedAnimationIds = AnimationEntries
-            .Select(entry => entry.BodyId)
-            .ToHashSet();
-        HashSet<int> usedBodyDefIds = new BodyDefService()
-            .Load(Path.Combine(GetCurrentFolderPath(), "Body.def"))
-            .Keys
-            .ToHashSet();
-
         for (int id = start; id <= end; id++)
         {
-            bool gumpUsed = GumpEntries.Any(entry => entry.GumpId == id && entry.IsValid);
-            int animationId = id - 50000;
-            bool artUsed = usedArtIds.Contains(animationId);
-            bool animationUsed = usedAnimationIds.Contains(animationId);
-            bool bodyDefUsed = usedBodyDefIds.Contains(animationId);
-            int femaleId = 60000 + animationId;
-            bool femaleGumpUsed =
-                WearableWizardCreateFemaleVariant &&
-                GumpEntries.Any(entry => entry.GumpId == femaleId && entry.IsValid);
+            int femaleId = 60000 + (id - 50000);
+            if (!usedGumpIds.Contains(id) &&
+                (!requireFemaleVariant || !usedGumpIds.Contains(femaleId)))
+            {
+                return id;
+            }
+        }
 
-            if (!gumpUsed && !femaleGumpUsed && !artUsed && !animationUsed && !bodyDefUsed)
+        return null;
+    }
+
+    private static int? FindFirstFreeId(int start, int end, HashSet<int> usedIds)
+    {
+        for (int id = start; id <= end; id++)
+        {
+            if (!usedIds.Contains(id))
             {
                 return id;
             }
@@ -564,6 +641,45 @@ public partial class MainWindowViewModel
         return value;
     }
 
+    private void SetWearableWizardIdInput(int? value, ref bool missing, Action<int> assign)
+    {
+        missing = !value.HasValue;
+
+        if (value.HasValue)
+        {
+            assign(value.Value);
+        }
+
+        OnPropertyChanged(nameof(WearableWizardHasSlotConflict));
+        RebuildWearableWizardPlan();
+    }
+
+    private HashSet<int> LoadUsedWearableArtIds()
+    {
+        string folderPath = GetCurrentFolderPath();
+        if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+        {
+            return GetVisibleUsedStaticArtIds();
+        }
+
+        return LoadCachedOrBuildArtEntries(folderPath)
+            .Where(entry =>
+                string.Equals(entry.Type, "Static", StringComparison.OrdinalIgnoreCase) &&
+                !entry.IsFreeSlot)
+            .Select(entry => entry.ArtId)
+            .ToHashSet();
+    }
+
+    private HashSet<int> GetVisibleUsedStaticArtIds()
+    {
+        return ArtEntries
+            .Where(entry =>
+                string.Equals(entry.Type, "Static", StringComparison.OrdinalIgnoreCase) &&
+                !entry.IsFreeSlot)
+            .Select(entry => entry.ArtId)
+            .ToHashSet();
+    }
+
     private static string DisplayPathOrNone(string path)
     {
         return string.IsNullOrWhiteSpace(path)
@@ -574,22 +690,25 @@ public partial class MainWindowViewModel
     private void ValidateWearableWizardConflicts()
     {
         bool maleConflict =
+            !wearableWizardMaleGumpIdMissing &&
             GumpEntries.Any(x => x.GumpId == WearableWizardMaleGumpId && x.IsValid);
 
         bool femaleConflict =
             WearableWizardCreateFemaleVariant &&
+            !wearableWizardFemaleGumpIdMissing &&
             GumpEntries.Any(x => x.GumpId == WearableWizardFemaleGumpId && x.IsValid);
 
         bool artConflict =
-            ArtEntries.Any(x =>
-                x.ArtId == WearableWizardArtId &&
-                !x.IsFreeSlot);
+            !wearableWizardArtIdMissing &&
+            LoadUsedWearableArtIds().Contains(WearableWizardArtId);
 
         bool animationConflict =
+            !wearableWizardAnimationIdMissing &&
             AnimationEntries.Any(x => x.BodyId == WearableWizardAnimationId);
 
         bool bodyDefConflict =
             WearableWizardAnimationMode == "Reuse Existing Animation" &&
+            !wearableWizardAnimationIdMissing &&
             new BodyDefService().EntryExists(
                 Path.Combine(GetCurrentFolderPath(), "Body.def"),
                 WearableWizardAnimationId);
@@ -606,6 +725,26 @@ public partial class MainWindowViewModel
         WearableWizardHueInvalid = hueInvalid;
 
         List<string> warnings = new();
+
+        if (wearableWizardMaleGumpIdMissing)
+        {
+            warnings.Add("Male/default gump ID is required.");
+        }
+
+        if (WearableWizardCreateFemaleVariant && wearableWizardFemaleGumpIdMissing)
+        {
+            warnings.Add("Female gump ID is required.");
+        }
+
+        if (wearableWizardArtIdMissing)
+        {
+            warnings.Add("Art ID is required.");
+        }
+
+        if (wearableWizardAnimationIdMissing)
+        {
+            warnings.Add("Animation ID is required.");
+        }
 
         if (maleConflict)
         {
@@ -661,14 +800,7 @@ public partial class MainWindowViewModel
 
         int bodyId = WearableWizardSelectedFreeSlot.TrueBodyId;
 
-        WearableWizardAnimationId = bodyId;
-
-        if (bodyId >= 400)
-        {
-            WearableWizardMaleGumpId = 50000 + bodyId;
-            WearableWizardFemaleGumpId = 60000 + bodyId;
-            WearableWizardArtId = bodyId;
-        }
+        WearableWizardAnimationIdInput = bodyId;
 
         WearableWizardStatusText =
             "Selected free animation slot " +
@@ -712,6 +844,11 @@ public partial class MainWindowViewModel
 
         foreach (MulSlotEntry entry in allMulSlotEntries)
         {
+            if (!entry.IsEmpty)
+            {
+                continue;
+            }
+
             if (!string.Equals(selectedFile, "All Files", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(entry.FileName, selectedFile, StringComparison.OrdinalIgnoreCase))
             {

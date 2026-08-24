@@ -104,36 +104,33 @@
 
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Male Gump ID" Foreground="#AAB4C0"/>
                             <NumericUpDown Grid.Row="0" Grid.Column="1"
-                                           Value="{Binding WearableWizardMaleGumpId, Mode=TwoWay}"
+                                           Value="{Binding WearableWizardMaleGumpIdInput, Mode=TwoWay}"
                                            Minimum="50000"
                                            Maximum="59999"
                                            Increment="1"
                                            FormatString="0"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Female Gump ID (derived)" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Female Gump ID" Foreground="#AAB4C0"/>
                             <NumericUpDown Grid.Row="1" Grid.Column="1"
-                                           Value="{Binding WearableWizardFemaleGumpId, Mode=TwoWay}"
+                                           Value="{Binding WearableWizardFemaleGumpIdInput, Mode=TwoWay}"
                                            Minimum="60000"
                                            Maximum="65534"
-                                           IsReadOnly="True"
                                            Increment="1"
                                            FormatString="0"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Art ID (derived)" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Art ID" Foreground="#AAB4C0"/>
                             <NumericUpDown Grid.Row="2" Grid.Column="1"
-                                           Value="{Binding WearableWizardArtId, Mode=TwoWay}"
+                                           Value="{Binding WearableWizardArtIdInput, Mode=TwoWay}"
                                            Minimum="0"
-                                           Maximum="9999"
-                                           IsReadOnly="True"
+                                           Maximum="65535"
                                            Increment="1"
                                            FormatString="0"/>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Animation ID (derived)" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Animation ID" Foreground="#AAB4C0"/>
                             <NumericUpDown Grid.Row="3" Grid.Column="1"
-                                           Value="{Binding WearableWizardAnimationId, Mode=TwoWay}"
+                                           Value="{Binding WearableWizardAnimationIdInput, Mode=TwoWay}"
                                            Minimum="0"
                                            Maximum="9999"
-                                           IsReadOnly="True"
                                            Increment="1"
                                            FormatString="0"/>
                         </Grid>

@@ -4,6 +4,9 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+#if DEBUG
+using AvaloniaUI.DiagnosticsSupport;
+#endif
 using UltimaAnimationForge.ViewModels;
 using UltimaAnimationForge.Views;
 
