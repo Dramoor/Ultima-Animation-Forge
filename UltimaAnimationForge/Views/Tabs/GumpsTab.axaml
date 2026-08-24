@@ -80,7 +80,7 @@
                     BorderThickness="0,0,1,0"
                     Background="#161A20"
                     Padding="8">
-                <Grid RowDefinitions="Auto,*">
+                <Grid RowDefinitions="Auto,Auto,*">
 
                     <StackPanel Grid.Row="0"
                                 Spacing="6"
@@ -93,7 +93,40 @@
                                  Text="{Binding GumpSearchText}"/>
                     </StackPanel>
 
-                    <ListBox Grid.Row="1"
+                    <StackPanel Grid.Row="1"
+                                Spacing="6"
+                                Margin="0,0,0,8">
+                        <CheckBox Content="Show free gump slots"
+                                  IsChecked="{Binding ShowFreeGumpSlots, Mode=TwoWay}"/>
+
+                        <ComboBox ItemsSource="{Binding GumpFreeSlotModes}"
+                                  SelectedItem="{Binding SelectedGumpFreeSlotMode, Mode=TwoWay}"
+                                  IsEnabled="{Binding ShowFreeGumpSlots}"/>
+
+                        <TextBlock Text="{Binding GumpSlotSummaryText}"
+                                   Foreground="#AAB4C0"
+                                   TextWrapping="Wrap"/>
+
+                        <TextBlock Text="{Binding GumpWearableSlotSummaryText}"
+                                   Foreground="#AAB4C0"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding ShowFreeGumpSlots}"/>
+
+                        <TextBlock Text="{Binding GumpFreeSlotPageText}"
+                                   Foreground="#AAB4C0"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding ShowFreeGumpSlots}"/>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="6"
+                              IsVisible="{Binding ShowFreeGumpSlots}">
+                            <Button Grid.Column="0" Content="Previous"
+                                    Command="{Binding PreviousGumpFreeSlotPageCommand}"/>
+                            <Button Grid.Column="1" Content="Next"
+                                    Command="{Binding NextGumpFreeSlotPageCommand}"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <ListBox Grid.Row="2"
                              ItemsSource="{Binding GumpEntries}"
                              SelectedItem="{Binding SelectedGump}">
                         <ListBox.ItemTemplate>
@@ -211,7 +244,89 @@
                                    FontWeight="Bold"
                                    Foreground="#E4EAF2"/>
 
-                        <!-- keep the rest of your right panel exactly from your old paste here -->
+                        <Grid ColumnDefinitions="Auto,*"
+                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                              ColumnSpacing="10"
+                              RowSpacing="5">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="ID" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedGump.GumpId}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Hex" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedGump.HexId}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Size" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedGump.SizeText}"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Length" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedGump.LengthText}"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Source" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedGump.SourceFile}" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="State" Foreground="#AAB4C0"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1"
+                                       Text="{Binding SelectedGump.DisplayText}"
+                                       TextWrapping="Wrap"/>
+                        </Grid>
+
+                        <Separator/>
+
+                        <TextBlock Text="Selected Slot" FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6">
+                            <Button Grid.Row="0" Grid.Column="0" Content="Import PNG" Command="{Binding ImportPngToGumpCommand}"/>
+                            <Button Grid.Row="0" Grid.Column="1" Content="Export PNG" Command="{Binding ExportSelectedGumpCommand}"/>
+                            <Button Grid.Row="1" Grid.Column="0" Content="Remove" Command="{Binding RemoveSelectedGumpCommand}"/>
+                            <Button Grid.Row="1" Grid.Column="1" Content="Reset Preview" Command="{Binding ResetGumpEditPreviewCommand}"/>
+                        </Grid>
+
+                        <Separator/>
+
+                        <TextBlock Text="Checked Slots" FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6">
+                            <Button Grid.Row="0" Grid.Column="0" Content="Check Visible" Command="{Binding CheckAllVisibleGumpsCommand}"/>
+                            <Button Grid.Row="0" Grid.Column="1" Content="Clear Checks" Command="{Binding ClearCheckedGumpsCommand}"/>
+                            <Button Grid.Row="1" Grid.Column="0" Content="Import Checked" Command="{Binding ImportCheckedGumpsCommand}"/>
+                            <Button Grid.Row="1" Grid.Column="1" Content="Export Checked" Command="{Binding ExportCheckedGumpsCommand}"/>
+                        </Grid>
+
+                        <Separator/>
+
+                        <CheckBox Content="Parallel wearable pair view"
+                                  IsChecked="{Binding ShowGumpParallelView, Mode=TwoWay}"/>
+
+                        <CheckBox Content="Show paperdoll template"
+                                  IsChecked="{Binding ShowPaperdollTemplate, Mode=TwoWay}"/>
+
+                        <ComboBox ItemsSource="{Binding PaperdollTemplateOptions}"
+                                  SelectedItem="{Binding SelectedPaperdollTemplate, Mode=TwoWay}"
+                                  IsEnabled="{Binding ShowPaperdollTemplate}"/>
+
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6"
+                              IsVisible="{Binding ShowPaperdollTemplate}">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Template ID" Foreground="#AAB4C0" VerticalAlignment="Center"/>
+                            <NumericUpDown Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="73727"
+                                           Value="{Binding PaperdollTemplateGumpId, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Opacity" Foreground="#AAB4C0" VerticalAlignment="Center"/>
+                            <NumericUpDown Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="1" Increment="0.05"
+                                           Value="{Binding PaperdollTemplateOpacity, Mode=TwoWay}"/>
+                        </Grid>
+
+                        <TextBlock Text="Wearable Offset" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding GumpWearableOffsetX, StringFormat='X: {0}'}" Foreground="#AAB4C0"/>
+                        <TextBlock Text="{Binding GumpWearableOffsetY, StringFormat='Y: {0}'}" Foreground="#AAB4C0"/>
+                        <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6">
+                            <Button Grid.Row="0" Grid.Column="1" Content="↑" Command="{Binding NudgeGumpUpCommand}"/>
+                            <Button Grid.Row="1" Grid.Column="0" Content="←" Command="{Binding NudgeGumpLeftCommand}"/>
+                            <Button Grid.Row="1" Grid.Column="1" Content="↓" Command="{Binding NudgeGumpDownCommand}"/>
+                            <Button Grid.Row="1" Grid.Column="2" Content="→" Command="{Binding NudgeGumpRightCommand}"/>
+                        </Grid>
+                        <Button Content="Reset Wearable Offset" Command="{Binding ResetGumpWearableOffsetCommand}"/>
+
+                        <Separator/>
+
+                        <TextBlock Text="{Binding GumpInfoText}"
+                                   Foreground="#AAB4C0"
+                                   TextWrapping="Wrap"/>
 
                     </StackPanel>
                 </ScrollViewer>

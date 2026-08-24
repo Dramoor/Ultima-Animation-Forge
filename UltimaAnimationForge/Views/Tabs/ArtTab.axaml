@@ -71,7 +71,7 @@
                         CornerRadius="6"
                         Padding="8">
                     <StackPanel Spacing="6">
-                        <TextBox Watermark="Search ID / hex..."
+                        <TextBox Watermark="Search name / ID / hex..."
                                  Text="{Binding ArtSearchText}" />
 
                         <ComboBox ItemsSource="{Binding ArtSlotFilterOptions}"
@@ -124,6 +124,9 @@
                                             BorderBrush="#343B46"
                                             BorderThickness="1">
                                         <Image Source="{Binding Thumbnail}"
+                                               Tag="Side"
+                                               AttachedToVisualTree="ArtThumbnail_AttachedToVisualTree"
+                                               DataContextChanged="ArtThumbnail_DataContextChanged"
                                                Stretch="Uniform"
                                                RenderOptions.BitmapInterpolationMode="None"/>
                                     </Border>
@@ -183,35 +186,16 @@
                         </ScrollViewer>
 
                         <!-- browser preview -->
-                        <ListBox IsVisible="{Binding ShowArtBrowserPreview}"
-                                 ItemsSource="{Binding ArtEntries}"
-                                 SelectedItem="{Binding SelectedArtEntry, Mode=TwoWay}"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Padding="0">
-
-                            <ListBox.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel />
-                                </ItemsPanelTemplate>
-                            </ListBox.ItemsPanel>
-
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="Margin" Value="0"/>
-                                    <Setter Property="Background" Value="Transparent"/>
-                                </Style>
-
-                                <Style Selector="ListBoxItem:selected Border.browserTile">
-                                    <Setter Property="BorderBrush" Value="#2D8CFF"/>
-                                    <Setter Property="BorderThickness" Value="2"/>
-                                    <Setter Property="Background" Value="#163A5C"/>
-                                </Style>
-                            </ListBox.Styles>
-
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
+                        <ScrollViewer IsVisible="{Binding ShowArtBrowserPreview}"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <ItemsRepeater ItemsSource="{Binding ArtEntries}">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinItemWidth="58"
+                                                       MinItemHeight="58" />
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate>
                                     <Border Classes="browserTile"
                                             Classes.pendingArt="{Binding IsPendingChange}"
                                             Width="54"
@@ -226,6 +210,9 @@
 
                                         <Grid>
                                             <Image Source="{Binding BrowserThumbnail}"
+                                                   Tag="Browser"
+                                                   AttachedToVisualTree="ArtThumbnail_AttachedToVisualTree"
+                                                   DataContextChanged="ArtThumbnail_DataContextChanged"
                                                    Stretch="Uniform"
                                                    RenderOptions.BitmapInterpolationMode="None" />
 
@@ -240,11 +227,20 @@
                                                     BorderBrush="#D14B4B"
                                                     BorderThickness="2"
                                                     Background="#22332020" />
+
+                                            <!-- Selected marker must live in the template because
+                                                 ItemsRepeater has no ListBoxItem:selected state. -->
+                                            <Border IsVisible="{Binding IsSelected}"
+                                                    BorderBrush="#2D8CFF"
+                                                    BorderThickness="3"
+                                                    Background="#18163A5C"
+                                                    IsHitTestVisible="False" />
                                         </Grid>
                                     </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                        </ScrollViewer>
 
                     </Grid>
                 </Border>

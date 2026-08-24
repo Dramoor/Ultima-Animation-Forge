@@ -14,7 +14,7 @@
         Background="#1B1F25"
         Foreground="White"
         RequestedThemeVariant="Dark"
-        Title="Ultima Animation Forge Alpha 28"
+        Title="Ultima Animation Forge Alpha 29"
         DragDrop.AllowDrop="True"
         KeyDown="Window_KeyDown"
         mc:Ignorable="d">

@@ -125,7 +125,13 @@ public class UopFileReader
         {
             try
             {
-                return MythicDecompress.Decompress(rawData);
+                // Newer clients wrap Mythic-compressed animation payloads in
+                // zlib. Unwrap the outer stream before Mythic decoding.
+                using MemoryStream input = new MemoryStream(rawData);
+                using ZLibStream zlib = new ZLibStream(input, CompressionMode.Decompress);
+                using MemoryStream output = new MemoryStream();
+                zlib.CopyTo(output);
+                return MythicDecompress.Decompress(output.ToArray());
             }
             catch
             {

@@ -17,15 +17,24 @@ public partial class ArtEntry : ObservableObject
 
     [ObservableProperty]
     private bool isChecked;
+
+    [ObservableProperty]
+    private bool isSelected;
+
     public bool IsFreeSlot { get; set; }
     public int ArtId { get; set; }
     public int FileIndex { get; set; }
     public string Type { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
     public string SecondaryText { get; set; } = string.Empty;
-    public WriteableBitmap? Thumbnail { get; set; }
-    public WriteableBitmap? BrowserThumbnail { get; set; }
+    [ObservableProperty]
+    private WriteableBitmap? thumbnail;
 
-    public string DisplayText => Type + " 0x" + ArtId.ToString("X4") + " (" + ArtId + ")";
+    [ObservableProperty]
+    private WriteableBitmap? browserThumbnail;
+
+    public string DisplayText => Type + " 0x" + ArtId.ToString("X4") + " (" + ArtId + ")" +
+        (string.IsNullOrWhiteSpace(Name) ? string.Empty : " | " + Name);
     public string ExportFileName => Type.ToLowerInvariant() + "_0x" + ArtId.ToString("X4") + ".png";
 
     partial void OnIsPendingArtChangeChanged(bool value)

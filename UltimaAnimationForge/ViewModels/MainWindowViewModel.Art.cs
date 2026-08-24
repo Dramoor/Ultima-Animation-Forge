@@ -24,6 +24,10 @@ namespace UltimaAnimationForge.ViewModels;
 public partial class MainWindowViewModel
 {
     private DispatcherTimer? artSearchDebounceTimer;
+    private List<ArtEntry>? artSourceEntries;
+    private string artSourceFolderPath = string.Empty;
+    private string artSourceProfileId = string.Empty;
+    private Dictionary<string, TileDataEntry>? artTileDataLookup;
     public ObservableCollection<ArtCutterSliceEntry> ArtCutterSlices { get; } = new();
 
     private readonly ArtRadarColorService artRadarColorService = new();
@@ -475,16 +479,10 @@ public partial class MainWindowViewModel
             "Used Only",
             StringComparison.OrdinalIgnoreCase);
 
-        Dictionary<string, TileDataEntry> tileDataLookup = TileDataEntries
-            .GroupBy(tile => GetArtTileDataLookupKey(tile.IsLand, tile.Id))
-            .ToDictionary(group => group.Key, group => group.First());
-
-        bool loadSidePanelThumbnail =
-            ShowArtThumbnails &&
-            !ShowArtBrowserMode;
-
-        bool loadBrowserThumbnail =
-            ShowArtBrowserMode;
+        Dictionary<string, TileDataEntry> tileDataLookup = artTileDataLookup ??=
+            TileDataEntries
+                .GroupBy(tile => GetArtTileDataLookupKey(tile.IsLand, tile.Id))
+                .ToDictionary(group => group.Key, group => group.First());
 
         foreach (ArtEntry entry in sourceEntries)
         {
@@ -513,6 +511,12 @@ public partial class MainWindowViewModel
                 continue;
             }
 
+            tileDataLookup.TryGetValue(
+                GetArtTileDataLookupKey(isLand, entry.ArtId),
+                out TileDataEntry? tileDataEntry);
+
+            entry.Name = tileDataEntry?.Name ?? string.Empty;
+
             if (!MatchesArtSearch(entry, ArtSearchText))
             {
                 continue;
@@ -522,10 +526,6 @@ public partial class MainWindowViewModel
             {
                 continue;
             }
-
-            tileDataLookup.TryGetValue(
-                GetArtTileDataLookupKey(isLand, entry.ArtId),
-                out TileDataEntry? tileDataEntry);
 
             entry.IsPendingArtChange = artDataService.HasPendingArtChange(entry);
             entry.IsPendingTileDataChange = tileDataEntry?.IsEdited == true;
@@ -545,13 +545,10 @@ public partial class MainWindowViewModel
                 entry.SecondaryText = "Pending TileData edit - not saved yet";
             }
 
-            entry.Thumbnail = loadSidePanelThumbnail
-                ? artDataService.LoadThumbnailCached(entry)
-                : null;
-
-            entry.BrowserThumbnail = loadBrowserThumbnail
-                ? artDataService.LoadThumbnailCached(entry)
-                : null;
+            // Thumbnails are populated by the view only when their item is realized.
+            // Keeping them null here avoids decoding every result during filtering.
+            entry.Thumbnail = null;
+            entry.BrowserThumbnail = null;
 
             ArtEntries.Add(entry);
         }
@@ -564,6 +561,27 @@ public partial class MainWindowViewModel
         }
 
         ArtStatusText = "Loaded " + ArtEntries.Count + " art entries.";
+    }
+
+    public void LoadArtThumbnailOnDemand(ArtEntry entry, bool browserThumbnail)
+    {
+        if (browserThumbnail)
+        {
+            if (!ShowArtBrowserMode || entry.BrowserThumbnail != null)
+            {
+                return;
+            }
+
+            entry.BrowserThumbnail = artDataService.LoadThumbnailCached(entry);
+            return;
+        }
+
+        if (!ShowArtThumbnails || ShowArtBrowserMode || entry.Thumbnail != null)
+        {
+            return;
+        }
+
+        entry.Thumbnail = artDataService.LoadThumbnailCached(entry);
     }
 
     private static string GetArtTileDataLookupKey(bool isLand, int id)
@@ -580,11 +598,21 @@ public partial class MainWindowViewModel
 
         string profileId = activeProfile?.ProfileId ?? "default";
 
+        if (artSourceEntries != null &&
+            string.Equals(artSourceFolderPath, folderPath, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(artSourceProfileId, profileId, StringComparison.Ordinal))
+        {
+            return artSourceEntries;
+        }
+
         ArtCacheData? cache = artAndRadarCacheService.LoadArtCache(profileId);
 
         if (artAndRadarCacheService.IsArtCacheValid(cache, folderPath) && cache?.ArtEntries != null)
         {
-            return cache.ArtEntries.Select(CloneCachedArtEntry).ToList();
+            artSourceEntries = cache.ArtEntries.Select(CloneCachedArtEntry).ToList();
+            artSourceFolderPath = folderPath;
+            artSourceProfileId = profileId;
+            return artSourceEntries;
         }
 
         List<ArtEntry> builtEntries = artDataService.BuildEntries(
@@ -595,7 +623,10 @@ public partial class MainWindowViewModel
 
         artAndRadarCacheService.SaveArtCache(profileId, folderPath, builtEntries);
 
-        return builtEntries;
+        artSourceEntries = builtEntries;
+        artSourceFolderPath = folderPath;
+        artSourceProfileId = profileId;
+        return artSourceEntries;
     }
 
     private static ArtEntry CloneCachedArtEntry(CachedArtEntry source)
@@ -621,7 +652,8 @@ public partial class MainWindowViewModel
 
         return entry.ArtId.ToString().Contains(search, StringComparison.OrdinalIgnoreCase) ||
                ("0x" + entry.ArtId.ToString("X4")).Contains(search, StringComparison.OrdinalIgnoreCase) ||
-               entry.Type.Contains(search, StringComparison.OrdinalIgnoreCase);
+               entry.Type.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               entry.Name.Contains(search, StringComparison.OrdinalIgnoreCase);
     }
 
     partial void OnSelectedArtSlotFilterChanged(string value)
@@ -636,6 +668,16 @@ public partial class MainWindowViewModel
 
     partial void OnSelectedArtEntryChanged(ArtEntry? value)
     {
+        foreach (ArtEntry entry in ArtEntries.Where(entry => entry.IsSelected && !ReferenceEquals(entry, value)))
+        {
+            entry.IsSelected = false;
+        }
+
+        if (value != null)
+        {
+            value.IsSelected = true;
+        }
+
         SelectedArtBitmap = artDataService.LoadBitmap(value);
         SelectedArtVisibleBounds = artDataService.GetVisibleBounds(SelectedArtBitmap);
         SelectedArtRadarColor = artRadarColorService.GetAverageVisibleColor(SelectedArtBitmap);
@@ -1616,42 +1658,50 @@ public partial class MainWindowViewModel
     [RelayCommand]
     private async Task LoadArtOverlayImageAsync()
     {
-        Window? mainWindow = GetMainWindow();
-        if (mainWindow == null)
+        try
         {
-            ArtStatusText = "Could not locate main window.";
-            return;
-        }
-
-        IReadOnlyList<IStorageFile> files = await mainWindow.StorageProvider.OpenFilePickerAsync(
-            new FilePickerOpenOptions
+            Window? mainWindow = GetMainWindow();
+            if (mainWindow == null || mainWindow.StorageProvider == null)
             {
-                Title = "Choose Art Overlay Image",
-                AllowMultiple = false,
-                FileTypeFilter = new[]
+                ArtStatusText = "Could not open the image picker.";
+                return;
+            }
+
+            IReadOnlyList<IStorageFile> files = await mainWindow.StorageProvider.OpenFilePickerAsync(
+                new FilePickerOpenOptions
                 {
-                new FilePickerFileType("Image files")
-                {
-                    Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" }
-                }
-                }
-            });
+                    Title = "Choose Art Overlay Image",
+                    AllowMultiple = false,
+                    FileTypeFilter = new[]
+                    {
+                        new FilePickerFileType("Image files")
+                        {
+                            Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" }
+                        }
+                    }
+                });
 
-        if (files.Count == 0)
-        {
-            ArtStatusText = "Load overlay cancelled.";
-            return;
+            if (files.Count == 0)
+            {
+                ArtStatusText = "Load overlay cancelled.";
+                return;
+            }
+
+            string? path = files[0].TryGetLocalPath();
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                ArtStatusText = "Selected overlay image is invalid.";
+                return;
+            }
+
+            artOverlayBitmap = LoadBitmapFromImageFile(path);
+            ArtStatusText = "Loaded art overlay image: " + Path.GetFileName(path);
         }
-
-        string? path = files[0].TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        catch (Exception ex)
         {
-            ArtStatusText = "Selected overlay image is invalid.";
-            return;
+            artOverlayBitmap = null;
+            ArtStatusText = "Could not load overlay image: " + ex.Message;
         }
-
-        artOverlayBitmap = LoadBitmapFromImageFile(path);
-        ArtStatusText = "Loaded art overlay image.";
     }
 
     [RelayCommand]
@@ -1699,7 +1749,12 @@ public partial class MainWindowViewModel
     private static WriteableBitmap LoadBitmapFromImageFile(string path)
     {
         using FileStream stream = File.OpenRead(path);
-        Bitmap bitmap = new Bitmap(stream);
+        using Bitmap bitmap = new Bitmap(stream);
+
+        if (bitmap.PixelSize.Width <= 0 || bitmap.PixelSize.Height <= 0)
+        {
+            throw new InvalidDataException("The image has invalid dimensions.");
+        }
 
         WriteableBitmap output = new WriteableBitmap(
             bitmap.PixelSize,

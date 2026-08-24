@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
@@ -20,6 +21,9 @@ namespace UltimaAnimationForge.ViewModels;
 
 public partial class MainWindowViewModel
 {
+    private const int GumpFreeSlotPageSize = 500;
+    private DispatcherTimer? gumpSearchDebounceTimer;
+
     private WriteableBitmap? gumpOverlayBitmap;
 
     [ObservableProperty]
@@ -198,9 +202,11 @@ public partial class MainWindowViewModel
     private string gumpInfoText = "No gump loaded.";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GumpSlotSummaryText))]
     private int totalFreeGumpSlots;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GumpSlotSummaryText))]
     private int totalUsedGumpSlots;
 
     public string GumpSlotSummaryText =>
@@ -210,9 +216,43 @@ public partial class MainWindowViewModel
     private GumpFreeSlotMode selectedGumpFreeSlotMode = GumpFreeSlotMode.All;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GumpFreeSlotPageText))]
+    private int gumpFreeSlotPage;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GumpFreeSlotPageText))]
+    private int gumpFreeSlotMatchCount;
+
+    public string GumpFreeSlotPageText
+    {
+        get
+        {
+            if (!ShowFreeGumpSlots || GumpFreeSlotMatchCount == 0)
+            {
+                return ShowFreeGumpSlots ? "No matching free slots" : string.Empty;
+            }
+
+            int pageCount = Math.Max(1, (GumpFreeSlotMatchCount + GumpFreeSlotPageSize - 1) / GumpFreeSlotPageSize);
+            int first = (GumpFreeSlotPage * GumpFreeSlotPageSize) + 1;
+            int last = Math.Min(first + GumpFreeSlotPageSize - 1, GumpFreeSlotMatchCount);
+            return "Page " + (GumpFreeSlotPage + 1) + " / " + pageCount +
+                   "  |  " + first + "-" + last + " of " + GumpFreeSlotMatchCount;
+        }
+    }
+
+    public ObservableCollection<GumpFreeSlotMode> GumpFreeSlotModes { get; } = new()
+    {
+        GumpFreeSlotMode.All,
+        GumpFreeSlotMode.MaleWearables,
+        GumpFreeSlotMode.FemaleWearables
+    };
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GumpWearableSlotSummaryText))]
     private int totalFreeMaleWearableGumpSlots;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GumpWearableSlotSummaryText))]
     private int totalFreeFemaleWearableGumpSlots;
 
     public string GumpWearableSlotSummaryText =>
@@ -739,6 +779,7 @@ public partial class MainWindowViewModel
 
     partial void OnSelectedGumpFreeSlotModeChanged(GumpFreeSlotMode value)
     {
+        GumpFreeSlotPage = 0;
         RebuildGumpList();
     }
 
@@ -757,11 +798,53 @@ public partial class MainWindowViewModel
 
     partial void OnGumpSearchTextChanged(string value)
     {
-        RebuildGumpList();
+        gumpSearchDebounceTimer ??= new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+
+        gumpSearchDebounceTimer.Stop();
+        gumpSearchDebounceTimer.Tick -= GumpSearchDebounceTimer_Tick;
+        gumpSearchDebounceTimer.Tick += GumpSearchDebounceTimer_Tick;
+        gumpSearchDebounceTimer.Start();
     }
 
     partial void OnShowFreeGumpSlotsChanged(bool value)
     {
+        GumpFreeSlotPage = 0;
+        OnPropertyChanged(nameof(GumpFreeSlotPageText));
+        RebuildGumpList();
+    }
+
+    private void GumpSearchDebounceTimer_Tick(object? sender, EventArgs e)
+    {
+        gumpSearchDebounceTimer?.Stop();
+        GumpFreeSlotPage = 0;
+        RebuildGumpList();
+    }
+
+    [RelayCommand]
+    private void PreviousGumpFreeSlotPage()
+    {
+        if (!ShowFreeGumpSlots || GumpFreeSlotPage <= 0)
+        {
+            return;
+        }
+
+        GumpFreeSlotPage--;
+        RebuildGumpList();
+    }
+
+    [RelayCommand]
+    private void NextGumpFreeSlotPage()
+    {
+        int pageCount = (GumpFreeSlotMatchCount + GumpFreeSlotPageSize - 1) / GumpFreeSlotPageSize;
+        if (!ShowFreeGumpSlots || GumpFreeSlotPage + 1 >= pageCount)
+        {
+            return;
+        }
+
+        GumpFreeSlotPage++;
         RebuildGumpList();
     }
 
@@ -806,7 +889,7 @@ public partial class MainWindowViewModel
             .ToHashSet();
 
         TotalUsedGumpSlots = usedGumpIds.Count;
-        TotalFreeGumpSlots = 0xFFFF - usedGumpIds.Count;
+        TotalFreeGumpSlots = 0x12000 - usedGumpIds.Count;
 
         TotalFreeMaleWearableGumpSlots = CountFreeGumpSlots(usedGumpIds, 50000, 59999);
         TotalFreeFemaleWearableGumpSlots = CountFreeGumpSlots(usedGumpIds, 60000, 0xFFFE);
@@ -817,7 +900,7 @@ public partial class MainWindowViewModel
         if (ShowFreeGumpSlots)
         {
             int startGumpId = 0;
-            int endGumpId = 0xFFFE;
+            int endGumpId = 0x11FFF;
 
             if (SelectedGumpFreeSlotMode == GumpFreeSlotMode.MaleWearables)
             {
@@ -830,6 +913,7 @@ public partial class MainWindowViewModel
                 endGumpId = 0xFFFE;
             }
 
+            List<int> matchingFreeIds = new();
             for (int gumpId = startGumpId; gumpId <= endGumpId; gumpId++)
             {
                 if (usedGumpIds.Contains(gumpId))
@@ -844,6 +928,20 @@ public partial class MainWindowViewModel
                     continue;
                 }
 
+                matchingFreeIds.Add(gumpId);
+            }
+
+            GumpFreeSlotMatchCount = matchingFreeIds.Count;
+            int pageCount = Math.Max(1, (matchingFreeIds.Count + GumpFreeSlotPageSize - 1) / GumpFreeSlotPageSize);
+            if (GumpFreeSlotPage >= pageCount)
+            {
+                GumpFreeSlotPage = pageCount - 1;
+            }
+
+            foreach (int gumpId in matchingFreeIds
+                .Skip(GumpFreeSlotPage * GumpFreeSlotPageSize)
+                .Take(GumpFreeSlotPageSize))
+            {
                 GumpEntries.Add(new GumpEntry
                 {
                     GumpId = gumpId,
@@ -851,6 +949,8 @@ public partial class MainWindowViewModel
                     SourceFile = "Free Slot"
                 });
             }
+
+            OnPropertyChanged(nameof(GumpFreeSlotPageText));
 
             SelectedGumpBitmap = null;
 
@@ -863,6 +963,7 @@ public partial class MainWindowViewModel
         }
         else
         {
+            GumpFreeSlotMatchCount = 0;
             foreach (GumpEntry entry in gumpDataService.Entries)
             {
                 if (!entry.IsValid)

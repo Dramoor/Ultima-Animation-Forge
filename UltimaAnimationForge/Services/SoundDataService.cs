@@ -12,7 +12,9 @@ namespace UltimaAnimationForge.Services;
 public sealed class SoundDataService
 {
     private const int MaxSounds = 0xFFF;
-    private const int NameHeaderLength = 32;
+    // Classic sound.mul records reserve 0x28 bytes for the sample name.
+    // Using 32 shifts eight bytes of PCM into the name and corrupts round trips.
+    private const int NameHeaderLength = 0x28;
     private const int WavHeaderLength = 44;
     private const int SampleRate = 22050;
 

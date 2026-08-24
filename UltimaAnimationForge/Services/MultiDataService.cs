@@ -13,7 +13,11 @@ namespace UltimaAnimationForge.Services;
 
 public sealed class MultiDataService
 {
-    public const int MaximumMultiIndex = 0x2200;
+    public const int MaximumMultiIndex = 0x2710;
+
+    private const ushort UopTileFlagLow = 0x0001;
+    private const ushort UopTileFlagHigh = 0x0100;
+    private const ulong HousingBinIdentifier = 0x126D1E99DDEDEE0AUL;
 
     private readonly Dictionary<int, List<MultiComponentEntry>> loadedMultis = new();
 
@@ -493,12 +497,19 @@ Func<int, bool> getItemBackground)
                     uint compressedSize = reader.ReadUInt32();
                     uint decompressedSize = reader.ReadUInt32();
 
-                    reader.ReadUInt64(); // hash
+                    ulong identifier = reader.ReadUInt64(); // filename hash
                     reader.ReadUInt32(); // unknown
 
                     ushort flag = reader.ReadUInt16();
 
                     if (dataOffset == 0 || decompressedSize == 0)
+                    {
+                        continue;
+                    }
+
+                    // housing.bin is a component catalog. Its header happens to look
+                    // like multi 7 and must never replace the real multi.
+                    if (identifier == HousingBinIdentifier)
                     {
                         continue;
                     }
@@ -569,6 +580,11 @@ Func<int, bool> getItemBackground)
                     ushort flags = binaryReader.ReadUInt16();
                     int clilocCount = binaryReader.ReadInt32();
 
+                    if (clilocCount < 0)
+                    {
+                        break;
+                    }
+
                     if (clilocCount > 0)
                     {
                         long skip = clilocCount * 4L;
@@ -587,8 +603,8 @@ Func<int, bool> getItemBackground)
                         X = unchecked((short)x),
                         Y = unchecked((short)y),
                         Z = unchecked((short)z),
-                        Flags = flags != 0 ? 0 : 1,
-                        Unknown = 0,
+                        Flags = (flags & UopTileFlagLow) != 0 ? 0 : 1,
+                        Unknown = (flags & UopTileFlagHigh) != 0 ? 1 : 0,
                         Solver = i
                     });
                 }

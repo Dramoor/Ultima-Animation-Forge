@@ -70,6 +70,7 @@ public partial class MainWindowViewModel
 
     private void LoadTileData()
     {
+        artTileDataLookup = null;
         TileDataEntries.Clear();
         FilteredTileDataEntries.Clear();
         SelectedTileDataFlagOptions.Clear();

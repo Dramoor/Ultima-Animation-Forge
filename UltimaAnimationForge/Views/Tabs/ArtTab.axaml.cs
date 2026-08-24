@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -26,6 +27,29 @@ public partial class ArtTab : UserControl
             DragDrop.AddDragOverHandler(mulSlotListBox, OnMulSlotDragOver);
             DragDrop.AddDropHandler(mulSlotListBox, OnMulSlotDrop);
         }
+    }
+
+    private void ArtThumbnail_AttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        LoadRealizedArtThumbnail(sender);
+    }
+
+    private void ArtThumbnail_DataContextChanged(object? sender, EventArgs e)
+    {
+        LoadRealizedArtThumbnail(sender);
+    }
+
+    private void LoadRealizedArtThumbnail(object? sender)
+    {
+        if (sender is not Image image ||
+            image.DataContext is not ArtEntry entry ||
+            DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        bool browserThumbnail = string.Equals(image.Tag as string, "Browser", StringComparison.Ordinal);
+        vm.LoadArtThumbnailOnDemand(entry, browserThumbnail);
     }
 
     private void ArtBrowserTile_PointerPressed(object? sender, PointerPressedEventArgs e)

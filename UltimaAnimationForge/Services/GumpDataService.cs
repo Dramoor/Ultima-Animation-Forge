@@ -12,7 +12,8 @@ namespace UltimaAnimationForge.Services;
 
 public sealed class GumpDataService
 {
-    private const int MaxGumpCount = 0xFFFF;
+    // Modern clients contain valid gumps above ushort.MaxValue.
+    private const int MaxGumpCount = 0x12000;
     private const int IndexEntrySize = 12;
     private const string GumpUopFileName = "gumpartLegacyMUL.uop";
     private const string GumpIdxFileName = "Gumpidx.mul";
@@ -86,6 +87,21 @@ public sealed class GumpDataService
                 continue;
             }
 
+            byte[]? payload = ReadUopGumpPayload(header.Value);
+            if (payload == null || payload.Length < 8)
+            {
+                continue;
+            }
+
+            int width = BitConverter.ToInt32(payload, 0);
+            int height = BitConverter.ToInt32(payload, 4);
+            if (!IsSaneGumpSize(width, height))
+            {
+                // EA ships placeholder entries with 0x0 dimensions. They are
+                // absent slots, not valid gumps.
+                continue;
+            }
+
             uopHeadersByGumpId[gumpId] = header.Value;
 
             entries.Add(new GumpEntry
@@ -93,9 +109,9 @@ public sealed class GumpDataService
                 GumpId = gumpId,
                 Lookup = checked((int)Math.Min(header.Value.Offset, int.MaxValue)),
                 Length = checked((int)Math.Min(header.Value.DecompressedSize, int.MaxValue)),
-                Extra = 0,
-                Width = 0,
-                Height = 0,
+                Extra = (width << 16) | (height & 0xFFFF),
+                Width = width,
+                Height = height,
                 IsValid = true,
                 SourceFile = GumpUopFileName
             });
